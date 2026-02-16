@@ -1,0 +1,126 @@
+{
+  "event": [
+    {
+      "file": "2026.01.30.hjfldps.CSV",
+      "name": "寒假福利大派送",
+      "startTime": "2026-01-30",
+      "endTime": "2026-02-28",
+      "forceShow": false,
+      "route": "hjfldps"
+    },
+    {
+      "file": "2026.02.06.mnjnb.CSV",
+      "name": "马年纪念币",
+      "startTime": "2026-02-06",
+      "endTime": "2026-02-12",
+      "forceShow": false,
+      "route": "mnjnb"
+    },
+    {
+      "file": "2026.01.30.wmgx.CSV",
+      "name": "万马刮新商店IV",
+      "startTime": "2026-01-30",
+      "endTime": "2026-03-13",
+      "forceShow": false,
+      "route": "wmgx"
+    }
+  ],
+  "all": [
+    {
+      "file": "slbj.CSV",
+      "name": "首领部件",
+      "forceShow": true,
+      "route": "slbj"
+    },{
+      "file": "gqjnb.CSV",
+      "name": "关卡纪念币",
+      "forceShow": true,
+      "route": "gqjnb"
+    },{
+      "file": "pq.CSV",
+      "name": "喷漆",
+      "forceShow": true,
+      "route": "pq"
+    },{
+      "file": "wq.CSV",
+      "name": "武器",
+      "forceShow": true,
+      "route": "wq"
+    },{
+      "file": "byt.CSV",
+      "name": "变异体",
+      "forceShow": true,
+      "route": "byt"
+    },{
+      "file": "wjjdc.CSV",
+      "name": "无尽角斗场",
+      "forceShow": true,
+      "route": "wjjdc"
+    },{
+      "file": "cszz.CSV",
+      "name": "传说之证",
+      "forceShow": true,
+      "route": "cszz"
+    },{
+      "file": "xnjnb.CSV",
+      "name": "新年纪念币",
+      "forceShow": true,
+      "route": "xnjnb"
+    },{
+      "file": "qbjnb.CSV",
+      "name": "Q版纪念币",
+      "forceShow": true,
+      "route": "qbjnb"
+    },{
+      "file": "wzld-cysj.CSV",
+      "name": "王者乱斗-超越水晶",
+      "forceShow": true,
+      "route": "wzld-cysj"
+    },{
+      "file": "gyq.CSV",
+      "name": "工业区",
+      "forceShow": true,
+      "route": "gyq"
+    },{
+      "file": "cstx.CSV",
+      "name": "城市突袭",
+      "forceShow": true,
+      "route": "cstx"
+    },{
+      "file": "mymz.CSV",
+      "name": "玛雅迷踪",
+      "forceShow": true,
+      "route": "mymz"
+    },{
+      "file": "smqx.CSV",
+      "name": "沙漠奇袭",
+      "forceShow": true,
+      "route": "smqx"
+    },{
+      "file": "dyzc.CSV",
+      "name": "地狱之城",
+      "forceShow": true,
+      "route": "dyzc"
+    },{
+      "file": "hdmy.CSV",
+      "name": "海岛魅影",
+      "forceShow": true,
+      "route": "hdmy"
+    },{
+      "file": "nhcz.CSV",
+      "name": "霓幻城寨",
+      "forceShow": true,
+      "route": "nhcz"
+    },{
+      "file": "byxg.CSV",
+      "name": "北域雪国",
+      "forceShow": true,
+      "route": "byxg"
+    },{
+      "file": "wjsj.CSV",
+      "name": "玩具世界",
+      "forceShow": true,
+      "route": "wjsj"
+    }
+  ]
+}
