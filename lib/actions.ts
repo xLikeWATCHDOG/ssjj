@@ -1,7 +1,8 @@
 "use server";
 
-import db from './db';
-import { cookies } from 'next/headers';
+import pool from './db';
+import {cookies} from 'next/headers';
+import {ResultSetHeader, RowDataPacket} from 'mysql2';
 
 const COOKIE_NAME = 'ssjj_user_id';
 
@@ -16,13 +17,18 @@ export async function createOrGetUser() {
   if (!userId) return null;
 
   try {
-    const existing = db.prepare('SELECT * FROM User WHERE id = ?').get(userId) as any;
-    if (existing) {
-        return { ...existing, data: JSON.parse(existing.data || '{}') };
+      const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM User WHERE id = ?', [userId]);
+
+      if (rows.length > 0) {
+          const existing = rows[0];
+          // data is already an object if column type is JSON in MySQL, otherwise parse it
+          const parsedData = typeof existing.data === 'string' ? JSON.parse(existing.data) : (existing.data || {});
+          return {...existing, data: parsedData};
     }
 
-    const info = db.prepare('INSERT INTO User (id, data) VALUES (?, ?)').run(userId, '{}');
-    if (info.changes > 0) {
+      const [result] = await pool.query<ResultSetHeader>('INSERT INTO User (id, data) VALUES (?, ?)', [userId, JSON.stringify({})]);
+
+      if (result.affectedRows > 0) {
         return { id: userId, data: {} };
     }
     return null;
@@ -37,8 +43,12 @@ export async function getUserData() {
   if (!userId) return {};
 
   try {
-    const user = db.prepare('SELECT data FROM User WHERE id = ?').get(userId) as any;
-    return user ? JSON.parse(user.data || '{}') : {};
+      const [rows] = await pool.query<RowDataPacket[]>('SELECT data FROM User WHERE id = ?', [userId]);
+      const user = rows[0];
+      if (user) {
+          return typeof user.data === 'string' ? JSON.parse(user.data) : (user.data || {});
+      }
+      return {};
   } catch (e) {
     console.error("Failed to fetch user data:", e);
     return {};
@@ -50,10 +60,12 @@ export async function updateUserData(data: Record<string, number>) {
   if (!userId) return { success: false, error: 'No user ID' };
 
   try {
-    const info = db.prepare('UPDATE User SET data = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?').run(JSON.stringify(data), userId);
-    if (info.changes === 0) {
-        // If update failed because user doesn't exist (shouldn't happen if createOrGetUser is called), create it
-        db.prepare('INSERT INTO User (id, data) VALUES (?, ?)').run(userId, JSON.stringify(data));
+      const jsonData = JSON.stringify(data);
+      const [result] = await pool.query<ResultSetHeader>('UPDATE User SET data = ? WHERE id = ?', [jsonData, userId]);
+
+      if (result.affectedRows === 0) {
+          // If update failed because user doesn't exist, try insert
+          await pool.query('INSERT INTO User (id, data) VALUES (?, ?)', [userId, jsonData]);
     }
     return { success: true };
   } catch (e) {
@@ -66,7 +78,8 @@ export async function syncUser(targetUserId: string) {
     // Switch current user to targetUserId
     // Verify target exists
     try {
-        const target = db.prepare('SELECT * FROM User WHERE id = ?').get(targetUserId) as any;
+        const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM User WHERE id = ?', [targetUserId]);
+        const target = rows[0];
         
         if (!target) return { success: false, error: 'User not found' };
         
@@ -76,27 +89,40 @@ export async function syncUser(targetUserId: string) {
             httpOnly: true,
             path: '/',
         });
-        return { success: true, data: JSON.parse(target.data || '{}') };
+
+        const parsedData = typeof target.data === 'string' ? JSON.parse(target.data) : (target.data || {});
+        return {success: true, data: parsedData};
     } catch (e) {
         console.error("Sync error:", e);
         return { success: false, error: 'Database error' };
     }
 }
 
-// Admin Action for SQL Page
+export async function checkUserExists(targetUserId: string) {
+    const trimmed = targetUserId.trim();
+    if (!trimmed) return {success: false, error: 'Invalid ID'};
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>('SELECT id FROM User WHERE id = ? LIMIT 1', [trimmed]);
+        return {success: true, exists: rows.length > 0};
+    } catch (e) {
+        console.error("Check user error:", e);
+        return {success: false, error: 'Database error'};
+    }
+}
+
+// Admin Action for SQL Page (MySQL Version)
 export async function executeSql(sql: string) {
     try {
-        // Simple check to prevent extremely dangerous commands if needed, though requirement implies full control.
-        // For safety, let's just run it.
-        const stmt = db.prepare(sql);
-        
-        // Determine if it's a SELECT (returns data) or others (returns info)
-        if (sql.trim().toUpperCase().startsWith('SELECT') || sql.trim().toUpperCase().startsWith('PRAGMA')) {
-             const rows = stmt.all();
-             return { success: true, data: rows };
+        // For safety, only SELECT queries allowed in simple executor if desired, but request implies full access.
+        const [result] = await pool.query(sql);
+
+        // MySQL2 returns [rows, fields] for SELECT, or [ResultSetHeader, undefined] for INSERT/UPDATE
+        if (Array.isArray(result)) {
+            // It's a SELECT result (rows)
+            return {success: true, data: result};
         } else {
-             const info = stmt.run();
-             return { success: true, meta: info };
+            // It's a ResultSetHeader
+            return {success: true, meta: result};
         }
     } catch (e: any) {
         return { success: false, error: e.message };

@@ -1,14 +1,23 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Typography, Card, Button, Upload, message, QRCode, Input, Space } from 'antd';
-import { CloudSyncOutlined, QrcodeOutlined, CameraOutlined, StopOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
-import type { UploadProps } from 'antd';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import type {UploadProps} from 'antd';
+import {Button, Card, Input, message, Modal, QRCode, Space, Typography, Upload} from 'antd';
+import {
+    CameraOutlined,
+    CloudSyncOutlined,
+    EyeInvisibleOutlined,
+    EyeOutlined,
+    QrcodeOutlined,
+    StopOutlined
+} from '@ant-design/icons';
 import jsqr from 'jsqr';
-import { getUserId, syncUser } from '@/lib/actions';
+import {useSearchParams} from 'next/navigation';
+import {checkUserExists, getUserId, syncUser} from '@/lib/actions';
 
 const { Title, Paragraph, Text } = Typography;
 
 export default function SyncPage() {
+    const searchParams = useSearchParams();
     const [userId, setUserId] = useState<string>('');
     const [targetId, setTargetId] = useState<string>('');
     const [scanning, setScanning] = useState(false);
@@ -17,23 +26,52 @@ export default function SyncPage() {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const rafRef = useRef<number | null>(null);
+    const [origin, setOrigin] = useState('');
+    const handledCodeRef = useRef<string | null>(null);
 
     // Cleanup on unmount
     useEffect(() => {
         getUserId().then(id => {
             if (id) setUserId(id);
         });
+        if (typeof window !== 'undefined') {
+            setOrigin(window.location.origin);
+        }
         return () => {
             stopScan();
         };
     }, []);
 
     const qrValue = useMemo(() => {
-        return userId || '';
-    }, [userId]);
+        if (!userId) return '';
+        const path = `/sync?code=${encodeURIComponent(userId)}`;
+        return origin ? `${origin}${path}` : path;
+    }, [userId, origin]);
 
-    const doSync = async (id: string) => {
-        const trimmed = id.trim();
+    const normalizeSyncCode = useCallback((input: string) => {
+        const raw = (input || '').trim();
+        if (!raw) return '';
+        let candidate = raw;
+        if (raw.startsWith('{') || raw.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                    candidate = String((parsed as any).userId || (parsed as any).id || (parsed as any).code || raw);
+                }
+            } catch {
+            }
+        }
+        try {
+            const url = new URL(candidate, origin || 'http://localhost');
+            const code = url.searchParams.get('code');
+            if (code) return code.trim();
+        } catch {
+        }
+        return candidate;
+    }, [origin]);
+
+    const doSync = async (input: string) => {
+        const trimmed = normalizeSyncCode(input).trim();
         if (!trimmed) {
             message.error('请输入目标用户 ID');
             return;
@@ -46,6 +84,37 @@ export default function SyncPage() {
             message.error(`同步失败：${res.error || '未知错误'}`);
         }
     };
+
+    useEffect(() => {
+        const codeParam = searchParams.get('code');
+        if (!codeParam) return;
+        const normalized = normalizeSyncCode(codeParam);
+        if (!normalized) {
+            message.error('同步码无效');
+            return;
+        }
+        if (handledCodeRef.current === normalized) return;
+        handledCodeRef.current = normalized;
+        const check = async () => {
+            const res = await checkUserExists(normalized);
+            if (res.success && res.exists) {
+                Modal.confirm({
+                    title: '确认同步',
+                    content: `检测到同步码 ${normalized}，是否同步？`,
+                    okText: '同步',
+                    cancelText: '取消',
+                    onOk: () => doSync(normalized),
+                });
+                return;
+            }
+            if (res.success) {
+                message.error('未找到该同步码');
+                return;
+            }
+            message.error(`检测失败：${res.error || '未知错误'}`);
+        };
+        check();
+    }, [searchParams, normalizeSyncCode]);
 
     const handleImportQRImage: UploadProps['beforeUpload'] = (file) => {
         const reader = new FileReader();
@@ -83,29 +152,13 @@ export default function SyncPage() {
                     });
                     
                     if (code) {
-                        const raw = (code.data || '').trim();
-                        // Support raw ID or JSON format
-                        let id = raw;
-                        // Try parsing if it looks like JSON
-                        if (raw.startsWith('{') || raw.startsWith('[')) {
-                             try {
-                                const parsed = JSON.parse(raw);
-                                if (parsed && typeof parsed === 'object') {
-                                    // Handle possible structures: { userId: ... } or { id: ... } or just raw string if valid
-                                    id = String((parsed as any).userId || (parsed as any).id || raw);
-                                }
-                             } catch (e) {
-                                // Ignore json parse error, use raw
-                             }
-                        }
-                        
-                        if (!id || id.length < 5) { // Simple validation for ID length
-                             // Try inverted scan as fallback if first attempt failed/invalid
+                        let id = normalizeSyncCode(code.data || '');
+                        if (!id) {
                              const codeInverted = jsqr(imageData.data, imageData.width, imageData.height, {
                                 inversionAttempts: "onlyInvert",
                              });
                              if (codeInverted && codeInverted.data) {
-                                 id = codeInverted.data.trim();
+                                 id = normalizeSyncCode(codeInverted.data.trim());
                              }
                         }
 
@@ -208,7 +261,7 @@ export default function SyncPage() {
                         });
                         
                         if (code?.data) {
-                            const id = code.data.trim();
+                            const id = normalizeSyncCode(code.data);
                             if (id) {
                                 stopScan();
                                 message.success('扫码成功');

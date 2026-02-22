@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { ProLayout } from '@ant-design/pro-components';
-import { ConfigProvider } from 'antd';
+import React, {useEffect, useState} from 'react';
+import {ProLayout} from '@ant-design/pro-components';
+import {ConfigProvider, Popover, QRCode, Typography} from 'antd';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { CrownOutlined, HomeOutlined, SyncOutlined } from '@ant-design/icons';
+import {usePathname, useRouter} from 'next/navigation';
+import {CrownOutlined, HomeOutlined, ShareAltOutlined, SyncOutlined} from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 
 interface EventConfig {
@@ -27,9 +27,21 @@ export default function AppLayout({ children, initialEvents, initialAllItems }: 
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
+    const [currentUrl, setCurrentUrl] = useState('');
+
+    useEffect(() => {
     setMounted(true);
-  }, []);
+        if (typeof window !== 'undefined') {
+            setCurrentUrl(window.location.href);
+        }
+    }, [pathname]); // Update URL when pathname changes
+
+    const handleShareClick = () => {
+        const url = currentUrl || (typeof window !== 'undefined' ? window.location.href : '');
+        if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    };
 
   const route = {
     path: '/',
@@ -92,6 +104,41 @@ export default function AppLayout({ children, initialEvents, initialAllItems }: 
                 }}
                 onMenuHeaderClick={() => router.push('/')}
                 contentStyle={{ padding: 24 }}
+                actionsRender={() => [
+                    <Popover
+                        key="share"
+                        content={
+                            <div style={{textAlign: 'center', padding: 8}}>
+                                <QRCode value={currentUrl || 'https://ssjj-calculator.vercel.app'} size={160}
+                                        bordered={false}/>
+                                <Typography.Text type="secondary" style={{
+                                    display: 'block',
+                                    marginTop: 8,
+                                    fontSize: 12,
+                                    maxWidth: 160,
+                                    wordBreak: 'break-all'
+                                }}>
+                                    {currentUrl}
+                                </Typography.Text>
+                            </div>
+                        }
+                        trigger="hover"
+                        placement="bottomRight"
+                    >
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 40,
+                            height: 40,
+                            cursor: 'pointer',
+                            color: 'rgba(0, 0, 0, 0.45)',
+                            fontSize: 18
+                        }} onClick={handleShareClick}>
+                            <ShareAltOutlined/>
+                        </div>
+                    </Popover>
+                ]}
                 footerRender={() => (
                     <div style={{ textAlign: 'center', padding: '24px 0' }}>
                         Copyright © {new Date().getFullYear()} 史迪奇Birdy. All Rights Reserved.

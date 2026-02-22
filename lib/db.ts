@@ -1,21 +1,64 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+import mysql from 'mysql2/promise';
 
-// Ensure the directory exists
-const dbPath = path.join(process.cwd(), 'ssjj.db');
-const db = new Database(dbPath);
+// Extract connection details from DATABASE_URL if available, or use defaults
+// DATABASE_URL format: mysql://user:password@host:port/database
+const dbUrl = process.env.DATABASE_URL;
 
-// Initialize database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS User (
-    id TEXT PRIMARY KEY,
-    data TEXT,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+let connectionConfig = {};
 
-console.log('Database initialized: User table checked/created at', dbPath);
+if (dbUrl) {
+    try {
+        const url = new URL(dbUrl);
+        connectionConfig = {
+            host: url.hostname,
+            port: parseInt(url.port) || 3306,
+            user: url.username,
+            password: url.password,
+            database: url.pathname.slice(1), // remove leading slash
+        };
+    } catch (e) {
+        console.error("Invalid DATABASE_URL", e);
+    }
+} else {
+    // Fallback or explicit env vars if needed
+    connectionConfig = {
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'ssjj',
+    };
+}
 
-export default db;
+const pool = mysql.createPool({
+    ...connectionConfig,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+});
+
+// Auto-initialize table
+const initDb = async () => {
+    try {
+        console.log('Attempting to connect to database at:', (connectionConfig as any).host);
+        const connection = await pool.getConnection();
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS User (
+                id VARCHAR(191) PRIMARY KEY,
+                data JSON,
+                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        `);
+        connection.release();
+        console.log('Database initialized: User table checked/created.');
+    } catch (err: any) {
+        console.error('Database initialization failed:', err.message, err.code, err.address, err.port);
+        // Don't swallow the error completely in dev/build, but in prod we might want to fail fast
+        // or let the next request try again.
+    }
+};
+
+// Run init (non-blocking)
+initDb();
+
+export default pool;

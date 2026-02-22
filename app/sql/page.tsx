@@ -1,11 +1,18 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Input, Button, Table, Typography, Alert, Card, message } from 'antd';
-import { executeSql } from '@/lib/actions';
+import React, {useState} from 'react';
+import {Alert, Button, Card, Input, message, Space, Table, Tag, Typography} from 'antd';
+import {executeSql} from '@/lib/actions';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
+
+const COMMON_COMMANDS = [
+    {label: '查询前 10 个用户', sql: 'SELECT * FROM User LIMIT 10;'},
+    {label: '查询用户总数', sql: 'SELECT COUNT(*) as total FROM User;'},
+    {label: '查询最新更新的用户', sql: 'SELECT * FROM User ORDER BY updatedAt DESC LIMIT 5;'},
+    {label: '查看表结构', sql: 'DESCRIBE User;'},
+];
 
 export default function SqlPage() {
     const [sql, setSql] = useState('');
@@ -27,7 +34,7 @@ export default function SqlPage() {
                     message.success(`Query executed successfully. ${res.data.length} rows returned.`);
                 } else if (res.meta) {
                     setResult(res.meta);
-                    message.success(`Command executed successfully. Changes: ${res.meta.changes}, LastInsertRowid: ${res.meta.lastInsertRowid}`);
+                    message.success('Command executed successfully.');
                 }
             } else {
                 setError(res.error || 'Unknown error');
@@ -52,7 +59,7 @@ export default function SqlPage() {
 
     return (
         <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
-            <Title level={2}>Database Management (SQLite)</Title>
+            <Title level={2}>Database Management (MySQL)</Title>
             <Alert 
                 message="Warning: This page allows direct SQL execution." 
                 description="Be careful with UPDATE/DELETE/DROP commands. There is no undo."
@@ -62,6 +69,22 @@ export default function SqlPage() {
             />
 
             <Card title="Execute SQL" style={{ marginBottom: 24 }}>
+                <div style={{marginBottom: 16}}>
+                    <Text strong style={{display: 'block', marginBottom: 8}}>常用命令 (点击自动填充):</Text>
+                    <Space wrap>
+                        {COMMON_COMMANDS.map((cmd, idx) => (
+                            <Tag
+                                key={idx}
+                                color="blue"
+                                style={{cursor: 'pointer', padding: '4px 10px'}}
+                                onClick={() => setSql(cmd.sql)}
+                            >
+                                {cmd.label}
+                            </Tag>
+                        ))}
+                    </Space>
+                </div>
+
                 <TextArea 
                     rows={6} 
                     value={sql} 
