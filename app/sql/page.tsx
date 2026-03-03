@@ -1,8 +1,8 @@
 "use client";
 
 import React, {useState} from 'react';
-import {Alert, Button, Card, Input, message, Space, Table, Tag, Typography} from 'antd';
-import {executeSql} from '@/lib/actions';
+import {Alert, Button, Card, Input, message, Space, Table, Tag, Typography, Popconfirm} from 'antd';
+import {executeSql, cleanEmptyUsers} from '@/lib/actions';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -12,6 +12,7 @@ const COMMON_COMMANDS = [
     {label: '查询用户总数', sql: 'SELECT COUNT(*) as total FROM User;'},
     {label: '查询最新更新的用户', sql: 'SELECT * FROM User ORDER BY updatedAt DESC LIMIT 5;'},
     {label: '查看表结构', sql: 'DESCRIBE User;'},
+    {label: '查询空数据用户', sql: "SELECT * FROM User WHERE data = '{}' OR data = JSON_OBJECT();"},
 ];
 
 export default function SqlPage() {
@@ -20,14 +21,15 @@ export default function SqlPage() {
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const handleExecute = async () => {
-        if (!sql.trim()) return;
+    const handleExecute = async (command?: string) => {
+        const sqlToRun = command || sql;
+        if (!sqlToRun.trim()) return;
         setLoading(true);
         setResult(null);
         setError(null);
 
         try {
-            const res = await executeSql(sql);
+            const res = await executeSql(sqlToRun);
             if (res.success) {
                 if (res.data) {
                     setResult(res.data);
@@ -43,6 +45,23 @@ export default function SqlPage() {
         } catch (err: any) {
             setError(err.message);
             message.error('Execution failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClean = async () => {
+        setLoading(true);
+        try {
+            const res = await cleanEmptyUsers();
+            if (res.success) {
+                message.success(`Cleanup successful. Deleted ${res.deletedCount} empty records.`);
+                handleExecute('SELECT COUNT(*) as total FROM User;'); // Refresh count
+            } else {
+                message.error('Cleanup failed: ' + res.error);
+            }
+        } catch (e: any) {
+             message.error('Cleanup failed: ' + e.message);
         } finally {
             setLoading(false);
         }
@@ -92,9 +111,22 @@ export default function SqlPage() {
                     placeholder="SELECT * FROM User LIMIT 10;" 
                     style={{ fontFamily: 'monospace', marginBottom: 16 }}
                 />
-                <Button type="primary" onClick={handleExecute} loading={loading}>
-                    Run Query
-                </Button>
+                <Space>
+                    <Button type="primary" onClick={() => handleExecute()} loading={loading}>
+                        Run Query
+                    </Button>
+                    <Popconfirm
+                        title="清理空用户数据"
+                        description="这将删除所有 data 为空对象 {} 的记录，确定吗？"
+                        onConfirm={handleClean}
+                        okText="确定"
+                        cancelText="取消"
+                    >
+                        <Button danger loading={loading}>
+                            Cleanup Empty Data
+                        </Button>
+                    </Popconfirm>
+                </Space>
             </Card>
 
             {error && (

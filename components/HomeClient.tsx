@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useRef } from 'react';
-import { Typography, Card, Progress, Row, Col, Statistic, Button, message, Grid } from 'antd';
+import { Typography, Card, Progress, Row, Col, Statistic, Button, message, Grid, Tag } from 'antd';
 import { CameraOutlined } from '@ant-design/icons';
 import html2canvas from 'html2canvas';
 import { useRouter } from 'next/navigation';
+import { formatNumber, getAttributeColor, formatAttributeValue } from '@/lib/utils';
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -35,11 +36,20 @@ interface SeriesStats {
   totalValue: number;
   ownedValue: number;
   route?: string;
+  link?: string;
+}
+
+interface AttributeStat {
+    name: string;
+    owned: number;
+    total: number;
+    percent: number;
 }
 
 export default function HomeClient({ 
     initialStats, 
-    initialSummary 
+    initialSummary,
+    globalAttributes
 }: { 
     initialStats: SeriesStats[], 
     initialSummary: { 
@@ -47,7 +57,8 @@ export default function HomeClient({
         ownedCount: number; 
         totalValue: number; 
         ownedValue: number; 
-    } 
+    },
+    globalAttributes: AttributeStat[]
 }) {
   const [overallStats, setSeriesStats] = useState<SeriesStats[]>(initialStats);
   const [totalSummary, setTotalSummary] = useState(initialSummary);
@@ -56,8 +67,6 @@ export default function HomeClient({
   const isMobile = !screens.md;
   const printRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-
-  // Data is passed via props, no need to fetch here
   
   const handleGenerateImage = async () => {
       if (!printRef.current) return;
@@ -65,7 +74,7 @@ export default function HomeClient({
           const canvas = await html2canvas(printRef.current, {
               useCORS: true,
               backgroundColor: '#ffffff',
-              scale: 2 // High res
+              scale: 2
           });
           const url = canvas.toDataURL('image/png');
           const link = document.createElement('a');
@@ -86,7 +95,6 @@ export default function HomeClient({
         <div ref={printRef} style={{ padding: 24, background: '#fff', minHeight: '80vh' }}>
             <Title level={2} style={{ textAlign: 'center', marginBottom: 32 }}>藏品收集进度概览</Title>
             
-            {/* Total Summary */}
             <Card title="总进度" variant="borderless" style={{ background: '#f5f5f5', marginBottom: 32 }}>
                 <Row gutter={[48, 24]} justify="center">
                     <Col xs={24} sm={12} md={8} lg={6} style={{ textAlign: 'center' }}>
@@ -99,7 +107,7 @@ export default function HomeClient({
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <Text type="secondary" style={{ fontSize: 16 }}>收集进度</Text>
                                     <Text strong style={{ fontSize: 36, color: '#389e0d', margin: '8px 0' }}>{percent}%</Text>
-                                    <Text type="secondary" style={{ fontSize: 16 }}>{totalSummary.ownedCount} / {totalSummary.totalCount}</Text>
+                                    <Text type="secondary" style={{ fontSize: 16 }}>{formatNumber(totalSummary.ownedCount)} / {formatNumber(totalSummary.totalCount)}</Text>
                                 </div>
                             )}
                         />
@@ -117,7 +125,7 @@ export default function HomeClient({
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <Text type="secondary" style={{ fontSize: 16 }}>价值进度</Text>
                                     <Text strong style={{ fontSize: 36, color: '#faad14', margin: '8px 0' }}>{percent}%</Text>
-                                    <Text type="secondary" style={{ fontSize: 16 }}>{totalSummary.ownedValue} / {totalSummary.totalValue}</Text>
+                                    <Text type="secondary" style={{ fontSize: 16 }}>{formatNumber(totalSummary.ownedValue, true)} / {formatNumber(totalSummary.totalValue, true)}</Text>
                                 </div>
                             )}
                         />
@@ -126,9 +134,21 @@ export default function HomeClient({
                         </div>
                     </Col>
                 </Row>
+                
+                {globalAttributes && globalAttributes.length > 0 && (
+                    <div style={{ marginTop: 32, borderTop: '1px dashed #d9d9d9', paddingTop: 24 }}>
+                        <Title level={4} style={{ textAlign: 'center', marginBottom: 16 }}>已激活总属性</Title>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+                            {globalAttributes.map((attr, idx) => (
+                                <Tag key={idx} color={getAttributeColor(attr.name)} style={{ fontSize: 14, padding: '6px 12px' }}>
+                                    {attr.name}: {formatAttributeValue(attr.name, attr.owned)}/{formatAttributeValue(attr.name, attr.total)} ({attr.percent.toFixed(2)}%)
+                                </Tag>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </Card>
 
-            {/* Series Details */}
             <Title level={3} style={{ marginTop: 32, marginBottom: 24, paddingLeft: 8, borderLeft: '4px solid #389e0d' }}>各系列详情</Title>
             <Row gutter={[24, 24]}>
                 {overallStats.map((series) => (
@@ -136,9 +156,16 @@ export default function HomeClient({
                         <Card 
                             title={series.name} 
                             hoverable 
-                            style={{ height: '100%', display: 'flex', flexDirection: 'column', cursor: series.route ? 'pointer' : 'default' }}
+                            style={{ height: '100%', display: 'flex', flexDirection: 'column', cursor: (series.link || series.route) ? 'pointer' : 'default' }}
                             styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column' } }}
-                            onClick={() => series.route && router.push(`/all/${series.route}`)}
+                            onClick={() => {
+                                if (series.link) {
+                                    router.push(series.link);
+                                } else if (series.route) {
+                                    // Fallback for backward compatibility, though app/page.tsx should now provide link
+                                    router.push(`/all/${series.route}`);
+                                }
+                            }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
                                 <div style={{ textAlign: 'center' }}>
@@ -164,11 +191,11 @@ export default function HomeClient({
                             <div style={{ marginTop: 'auto', background: '#fafafa', padding: 16, borderRadius: 8 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                                     <Text type="secondary">已拥有数量</Text>
-                                    <Text strong>{series.ownedCount} / {series.totalCount}</Text>
+                                    <Text strong>{formatNumber(series.ownedCount)} / {formatNumber(series.totalCount)}</Text>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <Text type="secondary">已解锁价值</Text>
-                                    <Text strong style={{ color: '#389e0d' }}>{series.ownedValue}</Text>
+                                    <Text strong style={{ color: '#389e0d' }}>{formatNumber(series.ownedValue)}</Text>
                                 </div>
                             </div>
                         </Card>

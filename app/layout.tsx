@@ -28,7 +28,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read and filter config server-side
   const configPath = path.join(process.cwd(), 'public/data/config.json');
   let configData: ConfigData = { event: [], all: [] };
   

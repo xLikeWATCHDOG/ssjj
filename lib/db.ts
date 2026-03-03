@@ -1,6 +1,5 @@
 import mysql from 'mysql2/promise';
 
-// Extract connection details from DATABASE_URL if available, or use defaults
 // DATABASE_URL format: mysql://user:password@host:port/database
 const dbUrl = process.env.DATABASE_URL;
 
@@ -14,13 +13,12 @@ if (dbUrl) {
             port: parseInt(url.port) || 3306,
             user: url.username,
             password: url.password,
-            database: url.pathname.slice(1), // remove leading slash
+            database: url.pathname.slice(1),
         };
     } catch (e) {
         console.error("Invalid DATABASE_URL", e);
     }
 } else {
-    // Fallback or explicit env vars if needed
     connectionConfig = {
         host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'root',
@@ -34,6 +32,7 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    connectTimeout: 1000, // 10s
 });
 
 // Auto-initialize table
@@ -53,8 +52,6 @@ const initDb = async () => {
         console.log('Database initialized: User table checked/created.');
     } catch (err: any) {
         console.error('Database initialization failed:', err.message, err.code, err.address, err.port);
-        // Don't swallow the error completely in dev/build, but in prod we might want to fail fast
-        // or let the next request try again.
     }
 };
 

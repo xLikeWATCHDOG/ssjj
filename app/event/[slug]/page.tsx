@@ -31,11 +31,9 @@ interface ConfigData {
 export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  // 1. Get User
   await createOrGetUser();
   const ownedItems = await getUserData();
 
-  // 2. Get Config
   const configPath = path.join(process.cwd(), 'public/data/config.json');
   const configContent = fs.readFileSync(configPath, 'utf-8');
   const configData: ConfigData = JSON.parse(configContent);
@@ -47,7 +45,6 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
       notFound();
   }
 
-  // Determine folder based on which list the config is in
   let csvFolder = 'event';
   if (configData.all.find(c => c.route === slug)) {
       csvFolder = 'all';

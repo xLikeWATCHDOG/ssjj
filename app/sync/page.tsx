@@ -29,7 +29,6 @@ export default function SyncPage() {
     const [origin, setOrigin] = useState('');
     const handledCodeRef = useRef<string | null>(null);
 
-    // Cleanup on unmount
     useEffect(() => {
         getUserId().then(id => {
             if (id) setUserId(id);
@@ -130,7 +129,6 @@ export default function SyncPage() {
                     return;
                 }
                 
-                // Ensure reasonable size for performance and accuracy
                 const MAX_SIZE = 1000;
                 let width = img.width;
                 let height = img.height;
@@ -168,7 +166,6 @@ export default function SyncPage() {
                         }
                         
                         message.success(`识别成功: ${id}`);
-                        // Small delay to let UI update
                         setTimeout(() => doSync(id), 500);
                     } else {
                         message.error('无法识别图片中的二维码，请尝试裁剪或提高清晰度');
@@ -200,7 +197,6 @@ export default function SyncPage() {
     };
 
     const startScan = async () => {
-        // Check for secure context
         if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
             message.error({
                 content: (
@@ -229,7 +225,6 @@ export default function SyncPage() {
                 audio: false,
             });
             
-            // Check if user cancelled while waiting for permission
             if (!scanningRef.current) {
                 stream.getTracks().forEach(t => t.stop());
                 return;
@@ -239,10 +234,8 @@ export default function SyncPage() {
             
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                // Important: wait for video to actually play
                 await videoRef.current.play().catch(e => console.error("Play error:", e));
                 
-                // Start RAF loop
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 

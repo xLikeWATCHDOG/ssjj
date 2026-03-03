@@ -21,7 +21,6 @@ export async function createOrGetUser() {
 
       if (rows.length > 0) {
           const existing = rows[0];
-          // data is already an object if column type is JSON in MySQL, otherwise parse it
           const parsedData = typeof existing.data === 'string' ? JSON.parse(existing.data) : (existing.data || {});
           return {...existing, data: parsedData};
     }
@@ -64,7 +63,6 @@ export async function updateUserData(data: Record<string, number>) {
       const [result] = await pool.query<ResultSetHeader>('UPDATE User SET data = ? WHERE id = ?', [jsonData, userId]);
 
       if (result.affectedRows === 0) {
-          // If update failed because user doesn't exist, try insert
           await pool.query('INSERT INTO User (id, data) VALUES (?, ?)', [userId, jsonData]);
     }
     return { success: true };
@@ -75,8 +73,6 @@ export async function updateUserData(data: Record<string, number>) {
 }
 
 export async function syncUser(targetUserId: string) {
-    // Switch current user to targetUserId
-    // Verify target exists
     try {
         const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM User WHERE id = ?', [targetUserId]);
         const target = rows[0];
@@ -110,18 +106,25 @@ export async function checkUserExists(targetUserId: string) {
     }
 }
 
-// Admin Action for SQL Page (MySQL Version)
+// Clean up empty users
+export async function cleanEmptyUsers() {
+    try {
+        const [result] = await pool.query<ResultSetHeader>(
+            "DELETE FROM User WHERE data = '{}' OR data = JSON_OBJECT()"
+        );
+        return { success: true, deletedCount: result.affectedRows };
+    } catch (e: any) {
+        console.error("Cleanup error:", e);
+        return { success: false, error: e.message };
+    }
+}
 export async function executeSql(sql: string) {
     try {
-        // For safety, only SELECT queries allowed in simple executor if desired, but request implies full access.
         const [result] = await pool.query(sql);
 
-        // MySQL2 returns [rows, fields] for SELECT, or [ResultSetHeader, undefined] for INSERT/UPDATE
         if (Array.isArray(result)) {
-            // It's a SELECT result (rows)
             return {success: true, data: result};
         } else {
-            // It's a ResultSetHeader
             return {success: true, meta: result};
         }
     } catch (e: any) {

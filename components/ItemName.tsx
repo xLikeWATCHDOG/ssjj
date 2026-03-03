@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography } from 'antd';
+import { Typography, Tooltip } from 'antd';
 
 const { Text } = Typography;
 
@@ -8,16 +8,29 @@ interface ItemNameProps {
     style?: React.CSSProperties;
 }
 
+const ZODIAC_ICONS: Record<string, string> = {
+    '鼠': '🐭',
+    '牛': '🐂',
+    '虎': '🐅',
+    '兔': '🐇',
+    '龙': '🐉',
+    '蛇': '🐍',
+    '马': '🐎',
+    '羊': '🐑',
+    '猴': '🐒',
+    '鸡': '🐔',
+    '狗': '🐕',
+    '猪': '🐖'
+};
+
 const ItemName: React.FC<ItemNameProps> = ({ name, style }) => {
     let color = 'inherit';
     let textDecoration = 'none';
 
-    // Check for "作废"
     if (name.includes('作废')) {
         textDecoration = 'line-through';
-        color = '#999'; // Gray out cancelled items
+        color = '#999';
     } else {
-        // Only apply colors if not cancelled
         if (name.includes('银白') || name.includes('白银')) {
             color = '#595959'; 
         } else if (name.includes('翠绿')) {
@@ -37,13 +50,25 @@ const ItemName: React.FC<ItemNameProps> = ({ name, style }) => {
         } else if (name.includes('血玉')) {
             color = '#a8071a'; 
         } else if (name.includes('专家')) {
-            color = '#1677ff'; // Blue for Expert
+            color = '#1677ff';
         } else if (name.includes('猎手')) {
-            color = '#722ed1'; // Purple for Hunter
+            color = '#722ed1';
         } else if (name.includes('战神')) {
-            color = '#cf1322'; // Red for God of War
+            color = '#cf1322';
         } else if (name.includes('至尊')) {
-            color = '#faad14'; // Gold for Supreme
+            color = '#faad14';
+        } else if (name.includes('暗金')) {
+            color = '#876800';
+        } else if (name.includes('隐藏')) {
+            color = '#eb2f96';
+        } else if (name.includes('铜质')) {
+            color = '#b76e2e'; 
+        } else if (name.includes('银质')) {
+            color = '#8c8c8c';
+        } else if (name.includes('水晶')) {
+            color = '#13c2c2';
+        } else if (name.includes('钛金')) {
+            color = '#531dab';
         }
 
         const romanRegex = /\b(I|II|III|IV|V|VI|VII|VIII|IX|X)\b/;
@@ -65,10 +90,26 @@ const ItemName: React.FC<ItemNameProps> = ({ name, style }) => {
         }
     }
 
+    let zodiacIcon: React.ReactNode = null;
+    const zodiacs = Object.keys(ZODIAC_ICONS);
+    const foundZodiac = zodiacs.find(z => name.includes(z));
+    if (foundZodiac) {
+        zodiacIcon = (
+            <Tooltip title={`${foundZodiac}年生肖`}>
+                <span style={{ marginRight: 6, color: color === 'inherit' ? undefined : color }}>
+                    {ZODIAC_ICONS[foundZodiac]}
+                </span>
+            </Tooltip>
+        );
+    }
+
     return (
-        <Text strong style={{ color, textDecoration, ...style }}>
-            {name}
-        </Text>
+        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+            {zodiacIcon}
+            <Text strong style={{ color, textDecoration, ...style }}>
+                {name}
+            </Text>
+        </span>
     );
 };
 
